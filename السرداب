@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ظل السرداب: قصة فهد</title>
+    <style>
+        body {
+            background-color: #080808;
+            color: #d1d1d1;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        #game-container {
+            width: 100%;
+            max-width: 650px;
+            background: #111111;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #1a1a1a;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #8b0000;
+        }
+        .status-item span {
+            font-weight: bold;
+            color: #ff4d4d;
+        }
+        #story-text {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            margin-bottom: 25px;
+            min-height: 120px;
+            color: #e6e6e6;
+        }
+        .choice-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background-color: #1f1f1f;
+            color: #ccc;
+            border: 1px solid #3d3d3d;
+            border-radius: 5px;
+            text-align: right;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .choice-btn:hover {
+            background-color: #8b0000;
+            color: #fff;
+            border-color: #ff4d4d;
+        }
+        .danger {
+            color: #ff3333;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="status-bar">
+        <div class="status-item">البطل: <span>فهد</span></div>
+        <div class="status-item">زيت الفانوس: <span id="oil-display">100%</span></div>
+        <div class="status-item">نبض القلب: <span id="pulse-display">طبيعي</span></div>
+    </div>
+    
+    <div id="story-text"></div>
+    <div id="choices-container"></div>
+</div>
+
+<script>
+    let oil = 100;
+    let hasKey = false;
+    let pulse = "طبيعي";
+
+    const storyData = {
+        start: {
+            text: "الساعة تجاوزت منتصف الليل. بعد تعطل سيارتك في الوادي، تقف الآن يا فهد أمام بوابة نزل حجري عتيق. الرياح تعوي بين الصخور، والنافذة العلوية تومض بنور خافت غير مفهوم. الباب الخشبي الضخم موارب قليلاً وله صرير خفيف.",
+            choices: [
+                { text: "دفع الباب والدخول فوراً للاحتماء من العاصفة", target: "entrance_hall", oilCost: 5 },
+                { text: "فحص محيط النزل الخارجي أولاً للبحث عن مخرج بديل", target: "outside_search", oilCost: 15 }
+            ]
+        },
+        outside_search: {
+            text: "تلتف حول الجدار الحجري؛ الأرض زلقة بفعل الغبار والحصى. تجد نافذة سرداب سفلية تنبعث منها رائحة عفن وكبريت، وتسمع صوتاً يشبه سحب سلاسل ثقيلة في الداخل. الرياح تشتد وتكاد تطفئ الفانوس.",
+            choices: [
+                { text: "العودة مسرعاً والدخول عبر الباب الرئيسي", target: "entrance_hall", oilCost: 10 },
+                { text: "محاولة النظر داخل نافذة السرداب", target: "peek_basement", oilCost: 10 }
+            ]
+        },
+        peek_basement: {
+            text: "تقترب بوجهك من القضبان الحديدية... فجأة يمر ظل ضخم بسرعة جنونية في الظلام مصحوباً بصرخة غير بشرية! يتراجع فهد مرتعباً ويسقط فانوسه، فينخفض الزيت بشدة ويدق قلبه بعنف.",
+            choices: [
+                { text: "الركض نحو الباب الرئيسي والدخول وإغلاقه خلفك", target: "entrance_hall_scared", oilCost: 20, setPulse: "مرتفع جداً" }
+            ]
+        },
+        entrance_hall: {
+            text: "أنت الآن داخل بهو النزل. السقف عالي وخشب الأثل ينزلق منه الغبار. أمامك ممران: درج خشبي متهالك يصعد للدور العلوي، وباب حديدي يقود للأسفل ومغلق بقفل قديم. على الطاولة قربك يقع دفتر مذكرات ممزق.",
+            choices: [
+                { text: "قراءة الدفتر المتروك على الطاولة", target: "read_notes", oilCost: 5 },
+                { text: "صعود الدرج الخشبي بحذر نحو مصدر النور الخافت", target: "upstairs", oilCost: 10 }
+            ]
+        },
+        entrance_hall_scared: {
+            text: "تغلق الباب وتسنده بكتفك وأنت تلهث. الصمت في البهو خانق، لكن أنفاسك تكاد تفضح مكانك. أمامك الدرج للأعلى، أو باب السرداب المغلق بقفل.",
+            choices: [
+                { text: "محاولة تمالك النفس وتفتيش أرجاء البهو", target: "read_notes", oilCost: 10, setPulse: "متسارع" },
+                { text: "الصعود بسرعة إلى الطابق العلوي", target: "upstairs", oilCost: 10 }
+            ]
+        },
+        read_notes: {
+            text: "تفتح الدفتر: '...الكيان لا يبصرك ما دمت في النور، لكنه يسمع دقات فزعك. لا تنزل للسرداب إلا والمفتاح معك، فقد حبسنا ما بقي من القافلة هناك عام 1974...'. تجد بجانب الدفتر مفتاحاً نحاسياً قديماً وتلتقطه!",
+            choices: [
+                { text: "أخذ المفتاح وصعود الدرج للأعلى", target: "upstairs_with_key", oilCost: 10, getKey: true },
+                { text: "التوجه فوراً لفتح باب السرداب السفلي", target: "basement_door", oilCost: 10, getKey: true }
+            ]
+        },
+        upstairs: {
+            text: "تصل لمنتصف الدرج فيصدر الخشب صريراً حاداً! يتوقف الهواء فجأة، وتظهر هيئة سوداء طويلة عند قمة الدرج بلا ملامح سوى عينين تعكسان نور فانوسك. يهمس الكيان باسمك بصوت يشبه حفيف الشجر: 'فهد...'.",
+            choices: [
+                { text: "رفع الفانوس في وجهه وحبْس الأنفاس", target: "confront_entity", oilCost: 20 },
+                { text: "الاستدارة والهروب ركضاً نحو الأسفل", target: "run_down", oilCost: 15, setPulse: "مرتفع جداً" }
+            ]
+        },
+        upstairs_with_key: {
+            text: "المفتاح في جيبك، لكن الكيان يظهر فجأة أعلى الدرج! عيناه محمرتان وينحدر نحوك ببطء وتهديد مرعب.",
+            choices: [
+                { text: "إلقاء شعلة زيت نحو الدرج لتأخيره والنزول للسرداب", target: "basement_escape", oilCost: 35 },
+                { text: "التجمد في مكانك ورفع الفانوس لردعه", target: "confront_entity", oilCost: 20 }
+            ]
+        },
+        confront_entity: {
+            text: "الضوء القوي يربك الكيان للحظات ويجعله يصرخ متراجعاً إلى الظلام، لكن حرارة الفانوس استهلكت كمية كبيرة من الزيت. الطريق أمامك سالك إما للغرفة العلوية أو التراجع للأسفل.",
+            choices: [
+                { text: "دخول الغرفة العلوية بحثاً عن جهاز إرسال", target: "radio_room", oilCost: 10 },
+                { text: "النزول للسرداب مستغلاً تراجعه", target: "basement_door", oilCost: 10 }
+            ]
+        },
+        run_down: {
+            text: "تتعثر وتسقط أسفل الدرج، وينكسر زجاج الفانوس جزئياً. تسمع وقع أقدام ثقيلة تهبط نحوك بسرعة!",
+            choices: [
+                { text: "الزحف نحو السرداب ومحاولة كسر القفل", target: "break_lock_fail", oilCost: 15 },
+                { text: "الاختباء داخل صندوق التخزين الخشبي في البهو", target: "hide_closet", oilCost: 5 }
+            ]
+        },
+        basement_door: {
+            text: "تقف أمام باب السرداب. إذا لم يكن معك المفتاح فلن يُفتح الباب.",
+            choices: [
+                { 
+                    text: hasKey ? "استخدام المفتاح النحاسي وفتح الباب" : "محاولة دفع الباب بقوة (يتطلب مفتاحاً)", 
+                    target: hasKey ? "basement_escape" : "break_lock_fail", 
+                    oilCost: 5 
+                }
+            ]
+        },
+        break_lock_fail: {
+            text: "القفل صلب ولا يتزحزح. ينفد زيت الفانوس تماماً ويحل الظلام الدامس... تشعر بأنفاس باردة خلف عنقك مباشرة. النهاية: ابتلع النزل فهد كما ابتلع القافلة قبله.",
+            choices: [
+                { text: "إعادة المحاولة من البداية", target: "restart", oilCost: 0 }
+            ]
+        },
+        hide_closet: {
+            text: "تحبس أنفاسك داخل الصندوق الخشبي. يمر الكيان بجوارك مباشرة، وتسمع خربشة أظافره على الخشب. بعد لحظات من الرعب المطلق، يبتعد متجهاً للأعلى. تخرج بحذر وتجد على الأرض مفتاح السرداب سقط أثناء تحركه!",
+            choices: [
+                { text: "أخذ المفتاح والتوجه فوراً لفتح السرداب", target: "basement_escape", oilCost: 10, getKey: true }
+            ]
+        },
+        radio_room: {
+            text: "داخل الغرفة العلوية تجد جهاز لاسلكي قديم يعمل ببطارية شمسية! ترسل نداء استغاثة عاجل بإحداثيات الوادي، ويصلك رد فوري من فرق البحث: 'فهد، نحن قريبون، اصمد 10 دقائق!'.",
+            choices: [
+                { text: "تحصين الغرفة وإشعال ما تبقى من الزيت حتى وصول النجدة", target: "win_rescue", oilCost: 20 }
+            ]
+        },
+        basement_escape: {
+            text: "تفتح الباب وتهبط درجات حجرية مبللة لتجد نفقاً قديماً يمتد تحت الجبل. تركض في النفق وتخرج من الجانب الآخر للوادي مع بزوغ أول خيوط فجر الصباح. نجوت يا فهد بحياتك، حاملاً معك أسرار النزل!",
+            choices: [
+                { text: "العب مرة أخرى", target: "restart", oilCost: 0 }
+            ]
+        },
+        win_rescue: {
+            text: "تخترق أضواء سيارات الإنقاذ نوافذ الغرفة، ويتبدد الظلام والكيان مع أصوات صافراتهم. نجوت يا فهد بفضل شجاعتك وثباتك!",
+            choices: [
+                { text: "العب مرة أخرى", target: "restart", oilCost: 0 }
+            ]
+        }
+    };
+
+    function renderScene(sceneKey) {
+        if (sceneKey === 'restart') {
+            oil = 100;
+            hasKey = false;
+            pulse = "طبيعي";
+            sceneKey = 'start';
+        }
+
+        const scene = storyData[sceneKey];
+        if (scene.getKey) hasKey = true;
+        if (scene.setPulse) pulse = scene.setPulse;
+
+        // فحص نفاد الزيت
+        if (oil <= 0 && sceneKey !== 'win_rescue' && sceneKey !== 'basement_escape') {
+            document.getElementById('story-text').innerHTML = "انطفأ الفانوس تماماً... في هذا النزل، الظلام يعني الموت الحتمي. انقض الكيان عليك في عتمة الليل.";
+            document.getElementById('choices-container').innerHTML = `<button class="choice-btn" onclick="renderScene('restart')">إعادة المحاولة</button>`;
+            updateUI();
+            return;
+        }
+
+        document.getElementById('story-text').innerHTML = scene.text;
+        const choicesContainer = document.getElementById('choices-container');
+        choicesContainer.innerHTML = '';
+
+        scene.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = () => {
+                oil = Math.max(0, oil - (choice.oilCost || 0));
+                renderScene(choice.target);
+            };
+            choicesContainer.appendChild(btn);
+        });
+
+        updateUI();
+    }
+
+    function updateUI() {
+        const oilDisplay = document.getElementById('oil-display');
+        oilDisplay.innerText = oil + '%';
+        if (oil <= 25) {
+            oilDisplay.className = 'danger';
+        } else {
+            oilDisplay.className = '';
+        }
+        document.getElementById('pulse-display').innerText = pulse;
+    }
+
+    // بدء اللعبة
+    renderScene('start');
+</script>
+
+</body>
+</html>
